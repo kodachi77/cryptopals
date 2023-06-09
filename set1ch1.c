@@ -1,18 +1,18 @@
-#include "utils.h"
-
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
+#include "utils.h"
+
 int
 main( void )
 {
-    char * byte_buffer, *encoded_buffer;
-    size_t i, blen, elen;
+    char * byte_buffer = NULL, *encoded_buffer = NULL;
+    size_t i, blen = 0, elen = 0;
     int    ret;
 
-    // first 5 test strings are from wiki
+    /* The first 5 test strings are from wiki. */
     static const char* s_hexString[] = {
         "6c696768742077",
         "6c6967687420776f",
@@ -29,10 +29,11 @@ main( void )
     for( i = 0; i < 6; i++ )
     {
         ret = hex2bytes( &byte_buffer, &blen, s_hexString[i], strlen( s_hexString[i] ), MODE_BINARY );
-        assert( !ret );
+        assert( ret == ERR_OK && byte_buffer && blen );
 
         ret = b64_encode( &encoded_buffer, &elen, byte_buffer, blen, MODE_TEXT );
-        assert( !ret );
+        assert( ret == ERR_OK && encoded_buffer && elen );
+
         assert( !strcmp( encoded_buffer, s_base64String[i] ) );
 
         if( i == 5 ) printf( "%s\n", encoded_buffer );

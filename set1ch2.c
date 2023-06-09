@@ -8,8 +8,8 @@
 int
 main( void )
 {
-    char * s1, *s2, *text_buffer, *hex_buffer;
-    size_t n1, n2, tlen, hlen;
+    char * s1 = NULL, *s2 = NULL, *text_buffer = NULL, *hex_buffer = NULL;
+    size_t n1 = 0, n2 = 0, tlen = 0, hlen = 0;
     int    ret;
 
     static const char* s_String1 = "1c0111001f010100061a024b53535009181c";
@@ -17,12 +17,13 @@ main( void )
 
     ret = hex2bytes( &s1, &n1, s_String1, strlen( s_String1 ), MODE_BINARY );
     ret += hex2bytes( &s2, &n2, s_String2, strlen( s_String2 ), MODE_BINARY );
-    assert( !ret );
+    assert( ret == ERR_OK && s1 && n1 && s2 && n2 );
 
     ret = apply_repeating_xor( &text_buffer, &tlen, s1, n1, s2, n2, MODE_TEXT );
-    assert( !ret );
+    assert( ret == ERR_OK && text_buffer && tlen );
     ret = bytes2hex( &hex_buffer, &hlen, text_buffer, tlen, MODE_TEXT );
-    assert( !ret );
+    assert( ret == ERR_OK && hex_buffer && hlen );
+
     assert( !strcmp( hex_buffer, "746865206b696420646f6e277420706c6179" ) );
 
     printf( "%s\n", hex_buffer );

@@ -1,51 +1,33 @@
-#include "utils.h"
-
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-#include <tomcrypt.h>
-
-#define KEY_LENGTH 16
+#include "utils.h"
 
 int
 main( void )
 {
-    int           cipher, ret, read;
-    symmetric_ECB ecb;
+    int ret;
 
-    char * base64_data, *binary_data, *plaintext;
-    size_t b64len;
-    size_t blen;
+    char * base64_data = NULL, *binary_data = NULL, *plaintext = NULL;
+    size_t b64len = 0, blen = 0, txt_len = 0;
 
     ret = read_all( &base64_data, &b64len, "set1ch7.txt", MODE_BINARY );
-    assert( !ret );
+    assert( ret == ERR_OK && base64_data && b64len );
 
     ret = b64_decode( &binary_data, &blen, base64_data, b64len, MODE_BINARY );
-    assert( !ret && binary_data && blen );
+    assert( ret == ERR_OK && binary_data && blen );
 
     static const unsigned char* key = "YELLOW SUBMARINE";
 
-    cipher = register_cipher( &aes_desc );
-    if( cipher == -1 ) return -1;
-
-    ret = ecb_start( cipher, key, KEY_LENGTH, 0 /* num rounds */, &ecb );
-    if( ret != CRYPT_OK ) return -1;
-
-    plaintext = (char*) malloc( blen + 1 );
-    memset( plaintext, 0, blen + 1 );
-
-    ret = ecb_decrypt( binary_data, plaintext, blen, &ecb );
-    if( ret != CRYPT_OK ) return -1;
-
+    ret = CP_aes_ecb_decrypt( &plaintext, &txt_len, binary_data, blen, key, strlen( key ), MODE_TEXT );
+    assert( ret == ERR_OK && plaintext && txt_len );
     printf( "%s\n", plaintext );
 
-    ecb_done( &ecb );
-
-    free( base64_data );
-    free( binary_data );
     free( plaintext );
+    free( binary_data );
+    free( base64_data );
 
     return 0;
 }

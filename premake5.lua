@@ -47,6 +47,7 @@ newaction {
    end
 }
 
+-- set 1
 base("set1ch1")
 base("set1ch2")
 base("set1ch3")
@@ -56,4 +57,7 @@ base("set1ch6")
 base("set1ch7")
     links { "tomcrypt", "tommath" }
 base("set1ch8")
-   links { "tomcrypt", "tommath" }
+
+-- set 2
+base("set2ch9")
+base("set2ch10")

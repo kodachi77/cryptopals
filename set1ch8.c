@@ -4,29 +4,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-/*
-#include <emmintrin.h>
-#include <math.h>
-#include <pmmintrin.h>
-#include <smmintrin.h>
-
-union vector128
-{
-    __m128i          i128;
-    unsigned __int64 u64[2];
-    unsigned char    u8[16];
-};
-static const unsigned char* key1 = "YELLOW SUBMARINE";
-static const unsigned char* key2 = "YELLOW SUBMARINE";
-
-__m128i         x = _mm_lddqu_si128 / better _mm_loadu_si128 ( (__m128i const*) key1 );
-__m128i         y = _mm_lddqu_si128 / better _mm_loadu_si128 ( (__m128i const*) key2 );
-union vector128 z = { .i128 = _mm_cmpeq_epi64( x, y ) };
-//__m128i z = _mm_xor_si128( x, y );
-
-for( int i = 0; i < 2; i++ ) { printf( "0x%016I64x ", z.u64[i] ); }
-printf( "\n" );
-*/
 
 #define AES_KEY_SIZE 16
 
@@ -40,17 +17,17 @@ typedef struct result
 void
 my_line_callback( const char* line, size_t len, void* arg, int line_idx )
 {
-    int    i, j, ret, n_chunks, reps;
+    int    ret, reps;
+    size_t i, j, n_chunks;
     char   key = '\0';
     size_t n1 = 0, n2 = 0;
-    char * s1 = NULL, *plaintext = NULL;
-
-    double score;
+    char*  s1 = NULL;
 
     result_t* r = (result_t*) arg;
 
     ret = hex2bytes( &s1, &n1, line, len, MODE_BINARY );
-    assert( !ret && s1 && n1 );
+    assert( ret == ERR_OK && s1 && n1 );
+
     if( ret ) return;
 
     n_chunks = n1 / AES_KEY_SIZE;
@@ -72,7 +49,7 @@ my_line_callback( const char* line, size_t len, void* arg, int line_idx )
         r->max_line        = line_idx;
     }
 
-    if( s1 ) free( s1 );
+    free( s1 );
 }
 
 int

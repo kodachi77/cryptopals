@@ -5,6 +5,9 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define LTC_NO_PROTOTYPES
+#include <tomcrypt.h>
+
 int
 hex2int( char ch )
 {
@@ -24,6 +27,7 @@ char
 int2hex( int i )
 {
     assert( i >= 0 && i <= 15 );
+
     if( i >= 0 && i <= 9 )
         return '0' + i;
     else if( i >= 10 && i <= 15 )
@@ -106,7 +110,10 @@ b64_encode( char** dst, size_t* dst_len, const char* src, size_t src_len, int mo
     assert( src && src_len );
     assert( mode == MODE_BINARY || mode == MODE_TEXT );
 
-    if( !dst || !dst_len || !src || !src_len || !( mode == MODE_BINARY || mode == MODE_TEXT ) ) { return ERR_INVALID_ARGUMENT; }
+    if( !dst || !dst_len || !src || !src_len || !( mode == MODE_BINARY || mode == MODE_TEXT ) )
+    {
+        return ERR_INVALID_ARGUMENT;
+    }
 
     n = src_len / 3 + ( src_len % 3 != 0 );
     n *= 4;
@@ -164,23 +171,27 @@ b64_decode( char** dst, size_t* dst_len, const char* src, size_t src_len, int mo
     char *       buffer, *p;
 
     static const unsigned char s_base64Indices[256] = {
-        255, 255, 255, 255, 255, 255, 255, 255, 255, 253, 253, 255, 255, 253, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
-        255, 255, 255, 255, 255, 255, 255, 255, 253, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 62,  255, 255, 255, 63,
-        52,  53,  54,  55,  56,  57,  58,  59,  60,  61,  255, 255, 255, 254, 255, 255, 255, 0,   1,   2,   3,   4,   5,   6,
-        7,   8,   9,   10,  11,  12,  13,  14,  15,  16,  17,  18,  19,  20,  21,  22,  23,  24,  25,  255, 255, 255, 255, 255,
-        255, 26,  27,  28,  29,  30,  31,  32,  33,  34,  35,  36,  37,  38,  39,  40,  41,  42,  43,  44,  45,  46,  47,  48,
-        49,  50,  51,  255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
-        255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
-        255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
-        255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
-        255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
-        255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255 };
+        255, 255, 255, 255, 255, 255, 255, 255, 255, 253, 253, 255, 255, 253, 255, 255, 255, 255, 255, 255, 255, 255,
+        255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 253, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 62,
+        255, 255, 255, 63,  52,  53,  54,  55,  56,  57,  58,  59,  60,  61,  255, 255, 255, 254, 255, 255, 255, 0,
+        1,   2,   3,   4,   5,   6,   7,   8,   9,   10,  11,  12,  13,  14,  15,  16,  17,  18,  19,  20,  21,  22,
+        23,  24,  25,  255, 255, 255, 255, 255, 255, 26,  27,  28,  29,  30,  31,  32,  33,  34,  35,  36,  37,  38,
+        39,  40,  41,  42,  43,  44,  45,  46,  47,  48,  49,  50,  51,  255, 255, 255, 255, 255, 255, 255, 255, 255,
+        255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+        255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+        255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+        255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+        255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+        255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255 };
 
     assert( dst && dst_len );
     assert( src && src_len );
     assert( mode == MODE_BINARY || mode == MODE_TEXT );
 
-    if( !dst || !dst_len || !src || !src_len || !( mode == MODE_BINARY || mode == MODE_TEXT ) ) { return ERR_INVALID_ARGUMENT; }
+    if( !dst || !dst_len || !src || !src_len || !( mode == MODE_BINARY || mode == MODE_TEXT ) )
+    {
+        return ERR_INVALID_ARGUMENT;
+    }
 
     // we're not going to implement overly complicated decoding
     // we're just going to skip new line characters as well as spaces
@@ -253,7 +264,8 @@ get_english_letter_score( int ch )
 }
 
 int
-break_single_char_xor( char** dst, size_t* dst_len, char* out_key, double* out_score, const char* src, size_t src_len, int mode )
+break_single_char_xor( char** dst, size_t* dst_len, char* out_key, double* out_score, const char* src, size_t src_len,
+                       int mode )
 {
     size_t i, j;
     char * buffer, *p;
@@ -296,7 +308,192 @@ break_single_char_xor( char** dst, size_t* dst_len, char* out_key, double* out_s
 }
 
 int
-apply_repeating_xor( char** dst, size_t* dst_len, const char* src, size_t src_len, const char* key, size_t key_len, int mode )
+pkcs7_pad( char** dst, size_t* dst_len, const char* src, size_t src_len, size_t blk_len, int mode )
+{
+    size_t len, pad_len;
+    char*  buffer;
+
+    assert( dst && dst_len );
+    assert( src && src_len && blk_len );
+    assert( mode == MODE_BINARY || mode == MODE_TEXT );
+
+    if( !dst || !dst_len || !src || !src_len || !blk_len || !( mode == MODE_BINARY || mode == MODE_TEXT ) )
+    {
+        return ERR_INVALID_ARGUMENT;
+    }
+
+    pad_len = src_len % blk_len ? blk_len - src_len % blk_len : 0;
+    len     = src_len + pad_len;
+
+    buffer = (char*) malloc( len + mode );
+    if( !buffer ) { return ERR_INSUFFICIENT_MEMORY; }
+
+    memcpy( buffer, src, src_len );
+    if( pad_len ) { memset( buffer + src_len, (int) pad_len, pad_len ); }    //>
+
+    if( mode == MODE_TEXT ) { buffer[blk_len] = 0; }
+    *dst     = buffer;
+    *dst_len = len;
+
+    return ERR_OK;
+}
+
+int
+pkcs7_unpad( char** dst, size_t* dst_len, const char* src, size_t src_len, int mode )
+{
+    size_t i, len, pad_len = 0, n = 1;
+    char*  buffer = NULL;
+
+    assert( dst && dst_len );
+    assert( src && src_len );
+    assert( mode == MODE_BINARY || mode == MODE_TEXT );
+
+    if( !dst || !dst_len || !src || !src_len || !( mode == MODE_BINARY || mode == MODE_TEXT ) )
+    {
+        return ERR_INVALID_ARGUMENT;
+    }
+
+    pad_len = src[src_len - 1];
+    if( pad_len < src_len )
+    {
+        for( i = src_len - 1; i >= src_len - pad_len; i-- )
+        {
+            if( src[i] == src[i - 1] )
+                ++n;
+            else
+                break;
+        }
+        if( n != pad_len ) { pad_len = 0; }
+    }
+    else
+    {
+        pad_len = 0;
+    }
+
+    len    = src_len - pad_len;
+    buffer = (char*) malloc( len + mode );
+    if( !buffer ) { return ERR_INSUFFICIENT_MEMORY; }
+
+    memcpy( buffer, src, len );
+
+    if( mode == MODE_TEXT ) { buffer[len] = 0; }
+
+    *dst     = buffer;
+    *dst_len = len;
+
+    return ERR_OK;
+}
+
+int
+CP_aes_ecb_decrypt( char** dst, size_t* dst_len, const char* src, size_t src_len, const char* key, size_t key_len,
+                    int mode )
+{
+    symmetric_ECB ecb;
+    int           cipher, ret;
+    char*         buffer = NULL;
+
+    assert( dst && dst_len );
+    assert( src && src_len );
+    assert( key && key_len );
+    assert( mode == MODE_BINARY || mode == MODE_TEXT );
+
+    if( !dst || !dst_len || !src || !src_len || !key || !key_len || !( mode == MODE_BINARY || mode == MODE_TEXT ) )
+    {
+        return ERR_INVALID_ARGUMENT;
+    }
+
+    cipher = register_cipher( &aes_desc );
+    if( cipher == -1 ) return ERR_AES_ERROR;
+
+    ret = ecb_start( cipher, key, (int) key_len, AES_NUM_ROUNDS, &ecb );
+    if( ret != CRYPT_OK ) return ERR_AES_ERROR;
+
+    buffer = (char*) malloc( src_len + mode );
+    if( !buffer ) { ret = ERR_INSUFFICIENT_MEMORY; }
+    else
+    {
+        ret = ecb_decrypt( src, buffer, (unsigned long) src_len, &ecb );
+        if( ret != CRYPT_OK )
+            ret = ERR_AES_ERROR;
+        else
+            ret = ERR_OK;
+
+        /* if( ret == CRYPT_OK )
+        {
+            ret = pkcs7_unpad( dst, dst_len, buffer, src_len, mode );
+        }    //>
+        else
+        {
+            ret = ERR_AES_ERROR;
+        }*/
+    }
+    //>free( buffer );
+    ecb_done( &ecb );
+
+    if( ret == ERR_OK )
+    {
+        *dst     = buffer;
+        *dst_len = src_len;
+    }
+
+    return ret;
+}
+
+int
+CP_aes_ecb_encrypt( char** dst, size_t* dst_len, const char* src, size_t src_len, const char* key, size_t key_len,
+                    int mode )
+{
+    symmetric_ECB ecb;
+    int           cipher, ret;
+    char *        buffer = NULL, *encrypted = NULL;
+
+    assert( dst && dst_len );
+    assert( src && src_len );
+    assert( key && key_len );
+    assert( mode == MODE_BINARY || mode == MODE_TEXT );
+
+    if( !dst || !dst_len || !src || !src_len || !key || !key_len || !( mode == MODE_BINARY || mode == MODE_TEXT ) )
+    {
+        return ERR_INVALID_ARGUMENT;
+    }
+
+    cipher = register_cipher( &aes_desc );
+    if( cipher == -1 ) return ERR_AES_ERROR;
+
+    ret = ecb_start( cipher, key, (int) key_len, AES_NUM_ROUNDS, &ecb );
+    if( ret != CRYPT_OK ) return ERR_AES_ERROR;
+
+    //>ret    = pkcs7_pad( &buffer, &n, src, src_len, AES_BLOCK_SIZE, mode );
+    //>if( ret == ERR_OK )
+    {
+        encrypted = (char*) malloc( src_len + mode );
+        if( encrypted )
+        {
+            ret = ecb_encrypt( src, encrypted, (unsigned long) src_len, &ecb );
+            if( ret == CRYPT_OK ) { ret = ERR_OK; }
+            else
+                ret = ERR_AES_ERROR;
+        }
+        else
+            ret = ERR_INSUFFICIENT_MEMORY;
+    }
+
+    ecb_done( &ecb );
+
+    if( ret == ERR_OK )
+    {
+        *dst     = encrypted;
+        *dst_len = src_len;
+    }
+
+    free( buffer );
+
+    return ret;
+}
+
+int
+apply_repeating_xor( char** dst, size_t* dst_len, const char* src, size_t src_len, const char* key, size_t key_len,
+                     int mode )
 {
     size_t i;
     int    ch1, ch2;
@@ -333,9 +530,10 @@ apply_repeating_xor( char** dst, size_t* dst_len, const char* src, size_t src_le
 int
 read_all( char** dst, size_t* dst_len, const char* filename, int mode )
 {
-    long  file_len;
-    int   read, ret;
-    char* buffer;
+    long   file_len;
+    int    ret;
+    char*  buffer;
+    size_t read;
 
     FILE* fp;
 
@@ -343,12 +541,14 @@ read_all( char** dst, size_t* dst_len, const char* filename, int mode )
     assert( filename );
     assert( mode == MODE_BINARY || mode == MODE_TEXT );
 
-    if( !dst || !dst_len || !filename || !( mode == MODE_BINARY || mode == MODE_TEXT ) ) { return ERR_INVALID_ARGUMENT; }
+    if( !dst || !dst_len || !filename || !( mode == MODE_BINARY || mode == MODE_TEXT ) )
+    {
+        return ERR_INVALID_ARGUMENT;
+    }
 
     ret = ERR_FILE_ERROR;
 
-    fp = fopen( filename, "rb" );
-    if( !fp ) { return ret; }
+    if( fopen_s( &fp, filename, "rb" ) ) { return ret; }
 
     if( !fseek( fp, 0, SEEK_END ) )
     {
@@ -386,15 +586,12 @@ read_lines( const char* filename, line_callback on_line, void* arg )
 {
     FILE*  fp;
     char*  line = NULL;
-    size_t len, n;
-    int    read, ret, line_idx = 0;
+    size_t n;
+    int    read, ret, line_idx = 0, len = 0;
 
     ret = ERR_FILE_ERROR;
 
-    fp = fopen( filename, "rb" );
-    if( !fp ) { return ret; }
-
-    len = 0;
+    if( fopen_s( &fp, filename, "rb" ) ) { return ret; }
 
     while( !feof( fp ) )
     {

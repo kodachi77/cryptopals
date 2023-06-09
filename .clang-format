@@ -30,7 +30,7 @@ BreakConstructorInitializers: BeforeColon
 BreakBeforeInheritanceComma: false
 BreakInheritanceList: BeforeColon
 BreakStringLiterals: true
-ColumnLimit: 130
+ColumnLimit: 120
 CompactNamespaces: true
 ConstructorInitializerAllOnOneLineOrOnePerLine: false
 ConstructorInitializerIndentWidth: 4 

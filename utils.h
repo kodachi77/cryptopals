@@ -43,6 +43,11 @@ int CP_aes_ecb_decrypt( char** dst, size_t* dst_len, const char* src, size_t src
 int CP_aes_ecb_encrypt( char** dst, size_t* dst_len, const char* src, size_t src_len, const char* key, size_t key_len,
                         int mode );
 
+int CP_aes_cbc_encrypt( char** dst, size_t* dst_len, const char* data, size_t data_len, const char* key, size_t key_len,
+                        const char* iv, size_t iv_len, int mode );
+
+int CP_aes_cbc_decrypt( char** dst, size_t* dst_len, const char* data, size_t data_len, const char* key, size_t key_len,
+                        const char* iv, size_t iv_len, int mode );
 /* 
  * File utilities. 
  */

@@ -9,6 +9,41 @@
 #include <tomcrypt.h>
 
 int
+cp_randint( int n )
+{
+    /* See https://stackoverflow.com/questions/822323/how-to-generate-a-random-int-in-c */
+    int r, end;
+    assert( n > 0 && n <= RAND_MAX );
+    if( ( n - 1 ) == RAND_MAX ) { return rand(); }
+    else
+    {
+        end = RAND_MAX / n;
+        end *= n;
+
+        while( ( r = rand() ) >= end )
+            ;
+
+        return r % n;
+    }
+}
+
+int
+cp_generate_random_string( char* dst, size_t dst_len, int seq_len )
+{
+    int i;
+    assert( dst && dst_len );
+    assert( dst_len >= seq_len );
+    if( !dst || !dst_len || dst_len < seq_len ) return ERR_INVALID_ARGUMENT;
+
+    /* let's use base64 symbol set */
+    static const char* s_lookup = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789+/";
+
+    for( i = 0; i < seq_len; i++ ) dst[i] = s_lookup[cp_randint( 64 )];
+
+    return ERR_OK;
+}
+
+int
 hex2int( char ch )
 {
     assert( ( ch >= '0' && ch <= '9' ) || ( ch >= 'A' && ch <= 'F' ) || ( ch >= 'a' && ch <= 'f' ) );
@@ -97,7 +132,7 @@ bytes2hex( char** dst, size_t* dst_len, const char* byte_data, size_t byte_len, 
 }
 
 int
-b64_encode( char** dst, size_t* dst_len, const char* src, size_t src_len, int mode )
+cp_base64_encode( char** dst, size_t* dst_len, const char* src, size_t src_len, int mode )
 {
     size_t      i, n, n_3bytes;
     char *      buffer, *p;
@@ -161,7 +196,7 @@ b64_encode( char** dst, size_t* dst_len, const char* src, size_t src_len, int mo
 }
 
 int
-b64_decode( char** dst, size_t* dst_len, const char* src, size_t src_len, int mode )
+cp_base64_decode( char** dst, size_t* dst_len, const char* src, size_t src_len, int mode )
 {
     size_t       i, n;
     unsigned int x;
@@ -308,7 +343,7 @@ break_single_char_xor( char** dst, size_t* dst_len, char* out_key, double* out_s
 }
 
 int
-pkcs7_pad( char** dst, size_t* dst_len, const char* src, size_t src_len, size_t blk_len, int mode )
+cp_pkcs7_pad( char** dst, size_t* dst_len, const char* src, size_t src_len, size_t blk_len, int mode )
 {
     size_t len, pad_len;
     char*  buffer;
@@ -339,10 +374,32 @@ pkcs7_pad( char** dst, size_t* dst_len, const char* src, size_t src_len, size_t 
 }
 
 int
-pkcs7_unpad( char** dst, size_t* dst_len, const char* src, size_t src_len, int mode )
+cp_pkcs7_pad_inplace( size_t* padded_len, char* dst, size_t dst_len, size_t curr_offset, size_t blk_len )
+{
+    size_t pad_len;
+
+    assert( padded_len );
+    assert( dst && dst_len );
+    assert( blk_len );
+
+    if( !padded_len || !dst || !dst_len || !blk_len ) return ERR_INVALID_ARGUMENT;
+
+    pad_len = curr_offset % blk_len ? blk_len - curr_offset % blk_len : 0;
+    assert( curr_offset + pad_len <= dst_len );
+    if( curr_offset + pad_len > dst_len ) return ERR_INVALID_ARGUMENT;
+
+    if( pad_len ) { memset( dst + curr_offset, (int) pad_len, pad_len ); }
+    *padded_len = curr_offset + pad_len;
+
+    return ERR_OK;
+}
+
+int
+cp_pkcs7_unpad( char** dst, size_t* dst_len, const char* src, size_t src_len, int mode )
 {
     size_t i, len, pad_len = 0, n = 1;
     char*  buffer = NULL;
+    int    ret    = ERR_OK;
 
     assert( dst && dst_len );
     assert( src && src_len );
@@ -363,11 +420,16 @@ pkcs7_unpad( char** dst, size_t* dst_len, const char* src, size_t src_len, int m
             else
                 break;
         }
-        if( n != pad_len ) { pad_len = 0; }
+        if( n != pad_len )
+        {
+            pad_len = 0;
+            ret     = ERR_INVALID_PADDING;
+        }
     }
     else
     {
         pad_len = 0;
+        ret     = ERR_INVALID_PADDING;
     }
 
     len    = src_len - pad_len;
@@ -381,7 +443,7 @@ pkcs7_unpad( char** dst, size_t* dst_len, const char* src, size_t src_len, int m
     *dst     = buffer;
     *dst_len = len;
 
-    return ERR_OK;
+    return ret;
 }
 
 int
@@ -418,29 +480,29 @@ CP_aes_ecb_decrypt( char** dst, size_t* dst_len, const char* src, size_t src_len
         else
             ret = ERR_OK;
 
-        /* if( ret == CRYPT_OK )
-        {
-            ret = pkcs7_unpad( dst, dst_len, buffer, src_len, mode );
-        }    //>
+        if( ret == CRYPT_OK ) { ret = cp_pkcs7_unpad( dst, dst_len, buffer, src_len, mode ); }    //>
         else
         {
             ret = ERR_AES_ERROR;
-        }*/
+        }
     }
-    //>free( buffer );
+    free( buffer );
+
     ecb_done( &ecb );
 
-    if( ret == ERR_OK )
+    /* if( ret == ERR_OK )
     {
+        if( mode == MODE_TEXT ) buffer[src_len] = 0;
+
         *dst     = buffer;
         *dst_len = src_len;
-    }
+    }*/
 
     return ret;
 }
 
 int
-CP_aes_ecb_encrypt( char** dst, size_t* dst_len, const char* src, size_t src_len, const char* key, size_t key_len,
+cp_aes_ecb_encrypt( char** dst, size_t* dst_len, const char* src, size_t src_len, const char* key, size_t key_len,
                     int mode )
 {
     symmetric_ECB ecb;
@@ -510,9 +572,9 @@ CP_aes_cbc_encrypt( char** dst, size_t* dst_len, const char* data, size_t data_l
     {
         s   = data + i;
         rem = i + AES_BLOCK_SIZE < data_len ? AES_BLOCK_SIZE : data_len - i;
-        ret = pkcs7_pad( &b1, &n1, s, rem, AES_BLOCK_SIZE, mode );
+        ret = cp_pkcs7_pad( &b1, &n1, s, rem, AES_BLOCK_SIZE, mode );
         ret = apply_repeating_xor( &b2, &n2, b1, n1, prev, AES_BLOCK_SIZE, mode );
-        ret = CP_aes_ecb_encrypt( &b3, &n3, b2, n2, key, key_len, mode );
+        ret = cp_aes_ecb_encrypt( &b3, &n3, b2, n2, key, key_len, mode );
         memcpy( encrypted + i, b3, n3 );
         len += n3;
 
@@ -551,7 +613,7 @@ CP_aes_cbc_decrypt( char** dst, size_t* dst_len, const char* data, size_t data_l
         s   = data + i;
         ret = CP_aes_ecb_decrypt( &b1, &n1, s, AES_BLOCK_SIZE, key, key_len, mode );
         ret = apply_repeating_xor( &b2, &n2, b1, n1, prev, AES_BLOCK_SIZE, mode );
-        ret = pkcs7_unpad( &b3, &n3, b2, n2, mode );
+        ret = cp_pkcs7_unpad( &b3, &n3, b2, n2, mode );
         memcpy( plaintext + i, b3, n3 );
         len += n3;
 
@@ -568,6 +630,30 @@ CP_aes_cbc_decrypt( char** dst, size_t* dst_len, const char* data, size_t data_l
     *dst_len = len;
 
     return ERR_OK;
+}
+
+int
+cp_count_ecb_repetitions( const char* src, size_t src_len, size_t block_size )
+{
+    int    ret, reps;
+    size_t i, j, n_chunks;
+    char   key = '\0';
+
+    assert( src_len && src );
+
+    n_chunks = src_len / block_size;
+    assert( src_len % block_size == 0 );
+
+    reps = 0;
+    for( i = 0; i < n_chunks - 1; i++ )
+    {
+        for( j = i + 1; j < n_chunks; j++ )
+        {
+            ret = memcmp( (const char*) src + i * block_size, (const char*) src + j * block_size, block_size );
+            if( !ret ) reps += 1;
+        }
+    }
+    return reps;
 }
 
 int

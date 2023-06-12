@@ -112,7 +112,7 @@ main( void )
     ret = read_all( &base64_data, &b64len, "set1ch6.txt", MODE_BINARY );
     assert( ret == ERR_OK && base64_data && b64len );
 
-    ret = b64_decode( &binary_data, &blen, base64_data, b64len, MODE_BINARY );
+    ret = cp_base64_decode( &binary_data, &blen, base64_data, b64len, MODE_BINARY );
     assert( ret == ERR_OK && binary_data && blen );
 
     ret = break_repeating_xor_key( &plaintext, &key, binary_data, blen );

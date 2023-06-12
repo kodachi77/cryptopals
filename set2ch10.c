@@ -35,7 +35,7 @@ main( void )
     ret = read_all( &base64_data, &b64len, "set2ch10.txt", MODE_BINARY );
     assert( ret == ERR_OK && base64_data && b64len );
 
-    ret = b64_decode( &binary_data, &blen, base64_data, b64len, MODE_BINARY );
+    ret = cp_base64_decode( &binary_data, &blen, base64_data, b64len, MODE_BINARY );
     assert( ret == ERR_OK && binary_data && blen );
 
     ret = CP_aes_cbc_decrypt( &b3, &n3, binary_data, blen, KEY, strlen( KEY ), IV, strlen( IV ), MODE_TEXT );

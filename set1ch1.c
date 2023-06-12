@@ -31,7 +31,7 @@ main( void )
         ret = hex2bytes( &byte_buffer, &blen, s_hexString[i], strlen( s_hexString[i] ), MODE_BINARY );
         assert( ret == ERR_OK && byte_buffer && blen );
 
-        ret = b64_encode( &encoded_buffer, &elen, byte_buffer, blen, MODE_TEXT );
+        ret = cp_base64_encode( &encoded_buffer, &elen, byte_buffer, blen, MODE_TEXT );
         assert( ret == ERR_OK && encoded_buffer && elen );
 
         assert( !strcmp( encoded_buffer, s_base64String[i] ) );

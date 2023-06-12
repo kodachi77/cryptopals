@@ -25,10 +25,10 @@ main( void )
     int    ret;
 
     static const char* BLOCK = "YELLOW SUBMARINE";
-    ret                      = pkcs7_pad( &buffer1, &len1, BLOCK, strlen( BLOCK ), 20, MODE_BINARY );
+    ret                      = cp_pkcs7_pad( &buffer1, &len1, BLOCK, strlen( BLOCK ), 20, MODE_BINARY );
     assert( ret == ERR_OK && buffer1 && len1 );
 
-    ret = pkcs7_unpad( &buffer2, &len2, buffer1, len1, MODE_TEXT );
+    ret = cp_pkcs7_unpad( &buffer2, &len2, buffer1, len1, MODE_TEXT );
     assert( ret == ERR_OK && buffer2 && len2 );
 
     assert( len2 == strlen( BLOCK ) );

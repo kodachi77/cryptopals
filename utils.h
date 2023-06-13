@@ -45,16 +45,16 @@ int cp_pkcs7_unpad( char** dst, size_t* dst_len, const char* src, size_t src_len
 
 int cp_pkcs7_pad_inplace( size_t* padded_len, char* dst, size_t dst_len, size_t curr_offset, size_t blk_len );
 
-int CP_aes_ecb_decrypt( char** dst, size_t* dst_len, const char* src, size_t src_len, const char* key, size_t key_len,
+int cp_aes_ecb_decrypt( char** dst, size_t* dst_len, const char* src, size_t src_len, const char* key, size_t key_len,
                         int mode );
 
 int cp_aes_ecb_encrypt( char** dst, size_t* dst_len, const char* src, size_t src_len, const char* key, size_t key_len,
                         int mode );
 
-int CP_aes_cbc_encrypt( char** dst, size_t* dst_len, const char* data, size_t data_len, const char* key, size_t key_len,
+int cp_aes_cbc_encrypt( char** dst, size_t* dst_len, const char* data, size_t data_len, const char* key, size_t key_len,
                         const char* iv, size_t iv_len, int mode );
 
-int CP_aes_cbc_decrypt( char** dst, size_t* dst_len, const char* data, size_t data_len, const char* key, size_t key_len,
+int cp_aes_cbc_decrypt( char** dst, size_t* dst_len, const char* data, size_t data_len, const char* key, size_t key_len,
                         const char* iv, size_t iv_len, int mode );
 
 int cp_count_ecb_repetitions( const char* src, size_t src_len, size_t block_size );

@@ -30,6 +30,8 @@ function base(name)
         filter { "system:linux" }
             platforms { "linux64" }
             links { "pthread", "dl" }
+        
+        links { "tomcrypt", "tommath", "cjson" }
 end
 
 
@@ -55,7 +57,6 @@ base("set1ch4")
 base("set1ch5")
 base("set1ch6")
 base("set1ch7")
-    links { "tomcrypt", "tommath" }
 base("set1ch8")
 
 -- set 2
@@ -64,6 +65,6 @@ base("set2ch10")
 base("set2ch11")
 base("set2ch12")
 base("set2ch13")
-    links { "cjson" }
 base("set2ch14")
 base("set2ch15")
+base("set2ch16")

@@ -130,7 +130,7 @@ blackbox_decrypt( const char* src, size_t src_len )
     char * buffer = NULL, *cookie;
     size_t len;
 
-    ret    = CP_aes_ecb_decrypt( &buffer, &len, src, src_len, unknown_key, AES_BLOCK_SIZE, MODE_TEXT );
+    ret    = cp_aes_ecb_decrypt( &buffer, &len, src, src_len, unknown_key, AES_BLOCK_SIZE, MODE_TEXT );
     cookie = parse_cookie( buffer, len );
     printf( "%s\n", cookie );
     free( cookie );

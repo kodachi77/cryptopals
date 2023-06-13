@@ -447,7 +447,7 @@ cp_pkcs7_unpad( char** dst, size_t* dst_len, const char* src, size_t src_len, in
 }
 
 int
-CP_aes_ecb_decrypt( char** dst, size_t* dst_len, const char* src, size_t src_len, const char* key, size_t key_len,
+cp_aes_ecb_decrypt( char** dst, size_t* dst_len, const char* src, size_t src_len, const char* key, size_t key_len,
                     int mode )
 {
     symmetric_ECB ecb;
@@ -554,7 +554,7 @@ cp_aes_ecb_encrypt( char** dst, size_t* dst_len, const char* src, size_t src_len
 }
 
 int
-CP_aes_cbc_encrypt( char** dst, size_t* dst_len, const char* data, size_t data_len, const char* key, size_t key_len,
+cp_aes_cbc_encrypt( char** dst, size_t* dst_len, const char* data, size_t data_len, const char* key, size_t key_len,
                     const char* iv, size_t iv_len, int mode )
 {
     char*       encrypted = NULL;
@@ -594,7 +594,7 @@ CP_aes_cbc_encrypt( char** dst, size_t* dst_len, const char* data, size_t data_l
 }
 
 int
-CP_aes_cbc_decrypt( char** dst, size_t* dst_len, const char* data, size_t data_len, const char* key, size_t key_len,
+cp_aes_cbc_decrypt( char** dst, size_t* dst_len, const char* data, size_t data_len, const char* key, size_t key_len,
                     const char* iv, size_t iv_len, int mode )
 {
     char*       plaintext = NULL;
@@ -611,7 +611,7 @@ CP_aes_cbc_decrypt( char** dst, size_t* dst_len, const char* data, size_t data_l
     for( i = 0; i < data_len; i += AES_BLOCK_SIZE )
     {
         s   = data + i;
-        ret = CP_aes_ecb_decrypt( &b1, &n1, s, AES_BLOCK_SIZE, key, key_len, mode );
+        ret = cp_aes_ecb_decrypt( &b1, &n1, s, AES_BLOCK_SIZE, key, key_len, mode );
         ret = apply_repeating_xor( &b2, &n2, b1, n1, prev, AES_BLOCK_SIZE, mode );
         ret = cp_pkcs7_unpad( &b3, &n3, b2, n2, mode );
         memcpy( plaintext + i, b3, n3 );

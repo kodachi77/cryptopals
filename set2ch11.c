@@ -51,7 +51,7 @@ blackbox_encrypt( result_t* res, const char* src, size_t src_len )
     {
         res->encryption = CBC_ENCRYPTION;
 
-        ret = CP_aes_cbc_encrypt( &res->encrypted_text, &res->elen, buffer, padded_len, key, AES_BLOCK_SIZE, IV,
+        ret = cp_aes_cbc_encrypt( &res->encrypted_text, &res->elen, buffer, padded_len, key, AES_BLOCK_SIZE, IV,
                                   AES_BLOCK_SIZE, MODE_BINARY );
         assert( ret == ERR_OK && res->encrypted_text && res->elen );
     }

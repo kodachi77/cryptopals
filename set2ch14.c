@@ -74,7 +74,7 @@ oracle( block_t* res, const char* user_input, size_t input_len )
         assert( ret == ERR_OK );
         if( ret != ERR_OK ) return ret;
 
-        ret = cp_generate_random_string( unknown_prefix, 4 * AES_BLOCK_SIZE, prefix_len );
+        ret = cp_generate_random_string( unknown_prefix, 4 * AES_BLOCK_SIZE, (int) prefix_len );    //>
         assert( ret == ERR_OK );
         if( ret != ERR_OK ) return ret;
 
@@ -134,7 +134,7 @@ count_consecutive_blocks( size_t* block_idx, const block_t* src )
 }
 
 static size_t
-determine_prefix_length()
+determine_cbc_prefix_length()
 {
     char    input[3 * AES_BLOCK_SIZE] = { 0 };
     block_t res;
@@ -213,7 +213,7 @@ main( void )
     printf( "2. %s detected\n", reps ? "ECB" : "CBC" );
 
     /* 3. Calculate prefix length. */
-    prefix_len = determine_prefix_length();
+    prefix_len = determine_cbc_prefix_length();
     printf( "3. prefix length: %zu\n", prefix_len );
 
     padding_size = determine_padding_size();

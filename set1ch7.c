@@ -21,7 +21,7 @@ main( void )
 
     static const unsigned char* key = "YELLOW SUBMARINE";
 
-    ret = CP_aes_ecb_decrypt( &plaintext, &txt_len, binary_data, blen, key, strlen( key ), MODE_TEXT );
+    ret = cp_aes_ecb_decrypt( &plaintext, &txt_len, binary_data, blen, key, strlen( key ), MODE_TEXT );
     assert( ret == ERR_OK && plaintext && txt_len );
     printf( "%s\n", plaintext );
 

@@ -22,10 +22,10 @@ main( void )
     char * base64_data = NULL, *binary_data = NULL, *plaintext = NULL;
     size_t b64len = 0, blen = 0, txt_len = 0;
 
-    ret = CP_aes_cbc_encrypt( &b1, &n1, DATA, strlen( DATA ), KEY, strlen( KEY ), IV, strlen( IV ), MODE_TEXT );
+    ret = cp_aes_cbc_encrypt( &b1, &n1, DATA, strlen( DATA ), KEY, strlen( KEY ), IV, strlen( IV ), MODE_TEXT );
     assert( ret == ERR_OK && b1 && n1 );
 
-    ret = CP_aes_cbc_decrypt( &b2, &n2, b1, n1, KEY, strlen( KEY ), IV, strlen( IV ), MODE_TEXT );
+    ret = cp_aes_cbc_decrypt( &b2, &n2, b1, n1, KEY, strlen( KEY ), IV, strlen( IV ), MODE_TEXT );
     assert( ret == ERR_OK && b1 && n1 );
 
     assert( !strcmp( DATA, b2 ) );
@@ -38,7 +38,7 @@ main( void )
     ret = cp_base64_decode( &binary_data, &blen, base64_data, b64len, MODE_BINARY );
     assert( ret == ERR_OK && binary_data && blen );
 
-    ret = CP_aes_cbc_decrypt( &b3, &n3, binary_data, blen, KEY, strlen( KEY ), IV, strlen( IV ), MODE_TEXT );
+    ret = cp_aes_cbc_decrypt( &b3, &n3, binary_data, blen, KEY, strlen( KEY ), IV, strlen( IV ), MODE_TEXT );
     assert( ret == ERR_OK && b3 && n3 );
 
     printf( "%s\n", b3 );

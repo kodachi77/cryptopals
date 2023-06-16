@@ -30,9 +30,9 @@ blackbox_encrypt( block_t* res, const char* random_prefix, size_t prefix_len, co
     assert( prefix_len && target_len );
     assert( key && key_len );
 
-    memcpy_s( buffer, len, random_prefix, prefix_len );
-    if( input_len && user_input ) memcpy_s( buffer + prefix_len, len - prefix_len, user_input, input_len );
-    memcpy_s( buffer + prefix_len + input_len, len - ( prefix_len + input_len ), target_bytes, target_len );
+    memcpy( buffer, random_prefix, prefix_len );
+    if( input_len && user_input ) memcpy( buffer + prefix_len, user_input, input_len );
+    memcpy( buffer + prefix_len + input_len, target_bytes, target_len );
 
     ret = cp_pkcs7_pad_inplace( &padded_len, buffer, len, len - AES_BLOCK_SIZE, AES_BLOCK_SIZE );
     if( ret != ERR_OK ) goto end;
@@ -74,7 +74,7 @@ oracle( block_t* res, const char* user_input, size_t input_len )
         assert( ret == ERR_OK );
         if( ret != ERR_OK ) return ret;
 
-        ret = cp_generate_random_string( unknown_prefix, 4 * AES_BLOCK_SIZE, (int) prefix_len );    //>
+        ret = cp_generate_random_string( unknown_prefix, 4 * AES_BLOCK_SIZE, (int) prefix_len );
         assert( ret == ERR_OK );
         if( ret != ERR_OK ) return ret;
 
@@ -96,7 +96,7 @@ determine_aes_block_size()
     for( i = 0; i < MAX_BLOCK_SIZE; i++ )
     {
         input[i] = 'A';
-        //>memset( &res, 0, sizeof( block_t ) );
+        memset( &res, 0, sizeof( block_t ) );
         if( oracle( &res, input, i + 1 ) != ERR_OK ) return 0;
         free( res.bytes );
 
@@ -145,7 +145,7 @@ determine_cbc_prefix_length()
     {
         input[2 * AES_BLOCK_SIZE + i] = 'A';
 
-        //>memset( &res, 0, sizeof( block_t ) );
+        memset( &res, 0, sizeof( block_t ) );
         if( oracle( &res, input, 2 * AES_BLOCK_SIZE + i ) != ERR_OK ) return 0;
         n_blocks = count_consecutive_blocks( &block_idx, &res );
         free( res.bytes );
@@ -191,18 +191,17 @@ int
 main( void )
 {
     int     ret, reps;
-    block_t res, my_res;
+    block_t res, outer_res;
 
-    char * secret_string = NULL, *b1 = NULL;
-    size_t i, k, secret_len, elen = 0, block_size = 0, n1 = 0, plen = 0;
+    char * secret_string = NULL;
+    size_t i, k;
 
-    size_t prefix_len, padding_size, curr_byte;
 
     char input[1024]     = { 0 };
     char plaintext[1024] = { 0 };
 
     /* 1. Determine size of the cypher. */
-    block_size = determine_aes_block_size();
+    size_t block_size = determine_aes_block_size();
     assert( block_size == AES_BLOCK_SIZE );
     printf( "1. block size: %zu\n", block_size );
 
@@ -213,50 +212,56 @@ main( void )
     printf( "2. %s detected\n", reps ? "ECB" : "CBC" );
 
     /* 3. Calculate prefix length. */
-    prefix_len = determine_cbc_prefix_length();
+    size_t prefix_len = determine_cbc_prefix_length();
+    assert( prefix_len > 0);
     printf( "3. prefix length: %zu\n", prefix_len );
 
-    padding_size = determine_padding_size();
+    size_t padding_size = determine_padding_size();
+    assert( padding_size > 0 );
     printf( "4. padding length: %zu\n", padding_size );
 
     ret = oracle( &res, NULL, 0 );
+    assert( ret == ERR_OK && res.bytes && res.len );
     free( res.bytes );
-    secret_len = res.len - prefix_len - padding_size;
+    size_t secret_len = res.len - prefix_len - padding_size;
     printf( "5. target string length: %zu\n", secret_len );
 
     /* 3. Decipher string */
-    curr_byte = 0;
+    size_t curr_i = 0;
     for( k = 0; k < secret_len; k++ )
     {
-        plen = ( ALIGN_UP( prefix_len, AES_BLOCK_SIZE ) - prefix_len )
-               + ( block_size - ( curr_byte + 1 ) ) % block_size;    //>
+        size_t plen = ( ALIGN_UP( prefix_len, AES_BLOCK_SIZE ) - prefix_len )
+               + ( block_size - ( curr_i + 1 ) ) % block_size;
 
         memset( &input, 'A', plen );
 
-        memset( &my_res, 0, sizeof( block_t ) );
-        oracle( &my_res, input, plen );
+        memset( &outer_res, 0, sizeof( block_t ) );
+        ret = oracle( &outer_res, input, plen );
+        assert( ret == ERR_OK && outer_res.bytes && outer_res.len );
 
         for( i = 0; i < 256; i++ )
         {
             memset( &input, 'A', plen );
-            if( curr_byte ) memcpy( input + plen, plaintext, curr_byte );
-            input[plen + curr_byte] = (char) i;
+            if( curr_i ) memcpy( input + plen, plaintext, curr_i );
+            input[plen + curr_i] = (char) i;
 
             memset( &res, 0, sizeof( block_t ) );
-            oracle( &res, input, plen + curr_byte + 1 );
+            ret = oracle( &res, input, plen + curr_i + 1 );
+            assert( ret == ERR_OK && res.bytes && res.len );
 
-            if( !memcmp( res.bytes, my_res.bytes, prefix_len + plen + curr_byte + 1 ) )
+            if( !memcmp( res.bytes, outer_res.bytes, prefix_len + plen + curr_i + 1 ) )
             {
-                plaintext[curr_byte] = (char) i;
-                ++curr_byte;
+                plaintext[curr_i] = (char) i;
+                ++curr_i;
+                free( res.bytes );
                 break;
             }
             free( res.bytes );
         }
-        free( my_res.bytes );
+        free( outer_res.bytes );
     }
 
-    plaintext[curr_byte] = 0;
+    plaintext[curr_i] = 0;
 
     printf( "6. discovered secret string:\n\n%s\n\n", plaintext );
 

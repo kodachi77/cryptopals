@@ -8,6 +8,24 @@
 #define LTC_NO_PROTOTYPES
 #include <tomcrypt.h>
 
+#if defined(__GNUC__) && !__STDC_LIB_EXT1__
+
+#include <sys/errno.h>
+
+typedef int errno_t;
+
+errno_t
+fopen_s( FILE** f, const char* name, const char* mode )
+{
+    errno_t ret = 0;
+    assert( f );
+    *f = fopen( name, mode );
+    if( !*f ) ret = errno;
+    return ret;
+}
+#endif
+
+
 int
 cp_randint( int n )
 {
@@ -44,7 +62,7 @@ cp_generate_random_string( char* dst, size_t dst_len, int seq_len )
 }
 
 int
-hex2int( char ch )
+cp_hex2int( char ch )
 {
     assert( ( ch >= '0' && ch <= '9' ) || ( ch >= 'A' && ch <= 'F' ) || ( ch >= 'a' && ch <= 'f' ) );
 
@@ -59,7 +77,7 @@ hex2int( char ch )
 }
 
 char
-int2hex( int i )
+cp_int2hex( int i )
 {
     assert( i >= 0 && i <= 15 );
 
@@ -72,7 +90,7 @@ int2hex( int i )
 }
 
 int
-hex2bytes( char** dst, size_t* dst_len, const char* hex_data, size_t hex_len, int mode )
+cp_hex2bytes( char** dst, size_t* dst_len, const char* hex_data, size_t hex_len, int mode )
 {
     size_t      i, byte_len;
     char *      buffer, *p;
@@ -91,7 +109,10 @@ hex2bytes( char** dst, size_t* dst_len, const char* hex_data, size_t hex_len, in
     buffer   = (char*) malloc( byte_len + mode );
     if( !buffer ) { return ERR_INSUFFICIENT_MEMORY; }
 
-    for( i = 0, s = hex_data, p = buffer; i < hex_len; i += 2 ) { *p++ = ( hex2int( *s++ ) << 4 ) | hex2int( *s++ ); }
+    for( i = 0, s = hex_data, p = buffer; i < hex_len; i += 2 )
+    {
+        *p++ = ( cp_hex2int( *s++ ) << 4 ) | cp_hex2int( *s++ );
+    }
     if( mode == MODE_TEXT ) { *p = 0; }
 
     assert( byte_len == p - buffer );
@@ -102,7 +123,7 @@ hex2bytes( char** dst, size_t* dst_len, const char* hex_data, size_t hex_len, in
 }
 
 int
-bytes2hex( char** dst, size_t* dst_len, const char* byte_data, size_t byte_len, int mode )
+cp_bytes2hex( char** dst, size_t* dst_len, const char* byte_data, size_t byte_len, int mode )
 {
     size_t      i, hex_len;
     char *      buffer, *p;
@@ -120,8 +141,8 @@ bytes2hex( char** dst, size_t* dst_len, const char* byte_data, size_t byte_len, 
 
     for( i = 0, s = byte_data, p = buffer; i < byte_len; i++ )
     {
-        *p++ = int2hex( ( *s & 0xF0 ) >> 4 );
-        *p++ = int2hex( *s++ & 0x0F );
+        *p++ = cp_int2hex( ( *s & 0xF0 ) >> 4 );
+        *p++ = cp_int2hex( *s++ & 0x0F );
     }
     if( mode == MODE_TEXT ) { *p = 0; }
 
@@ -299,44 +320,28 @@ get_english_letter_score( int ch )
 }
 
 int
-break_single_char_xor( char** dst, size_t* dst_len, char* out_key, double* out_score, const char* src, size_t src_len,
-                       int mode )
+cp_break_single_char_xor( char* dst, size_t dst_len, char* out_key, double* out_score )
 {
     size_t i, j;
-    char * buffer, *p;
 
-    double score, max_score;
-    char   chosen_key;
+    assert( dst && dst_len );
+    if( !dst || !dst_len ) return ERR_INVALID_ARGUMENT;
 
-    assert( src && src_len );
-    assert( mode == MODE_BINARY || mode == MODE_TEXT );
-
-    if( !src || !src_len || !( mode == MODE_BINARY || mode == MODE_TEXT ) ) { return ERR_INVALID_ARGUMENT; }
-
-    buffer = (char*) malloc( src_len + mode );
-    if( !buffer ) { return ERR_INSUFFICIENT_MEMORY; }
-
-    max_score = 0.0;
+    char   key_candidate = 0;
+    double max_score     = 0.0;
     for( i = 0; i < 256; ++i )
     {
-        score = 0.0;
-        for( j = 0; j < src_len; ++j ) { score += get_english_letter_score( src[j] ^ (int) i ); }
+        double score = 0.0;
+        for( j = 0; j < dst_len; ++j ) { score += get_english_letter_score( dst[j] ^ (int) i ); }
         if( score > max_score )
         {
-            max_score  = score;
-            chosen_key = (char) i;
+            max_score     = score;
+            key_candidate = (char) i;
         }
     }
-    if( dst && dst_len )
-    {
-        for( i = 0, p = buffer; i < src_len; ++i ) { *p++ = src[i] ^ chosen_key; }
-        if( mode == MODE_TEXT ) { *p = 0; }
+    for( i = 0; i < dst_len; ++i ) { dst[i] ^= key_candidate; }
 
-        *dst     = buffer;
-        *dst_len = src_len;
-    }
-
-    if( out_key ) *out_key = chosen_key;
+    if( out_key ) *out_key = key_candidate;
     if( out_score ) *out_score = max_score;
 
     return ERR_OK;
@@ -364,7 +369,7 @@ cp_pkcs7_pad( char** dst, size_t* dst_len, const char* src, size_t src_len, size
     if( !buffer ) { return ERR_INSUFFICIENT_MEMORY; }
 
     memcpy( buffer, src, src_len );
-    if( pad_len ) { memset( buffer + src_len, (int) pad_len, pad_len ); }    //>
+    if( pad_len ) { memset( buffer + src_len, (int) pad_len, pad_len ); }
 
     if( mode == MODE_TEXT ) { buffer[blk_len] = 0; }
     *dst     = buffer;
@@ -480,7 +485,7 @@ cp_aes_ecb_decrypt( char** dst, size_t* dst_len, const char* src, size_t src_len
         else
             ret = ERR_OK;
 
-        if( ret == CRYPT_OK ) { ret = cp_pkcs7_unpad( dst, dst_len, buffer, src_len, mode ); }    //>
+        if( ret == CRYPT_OK ) { ret = cp_pkcs7_unpad( dst, dst_len, buffer, src_len, mode ); }
         else
         {
             ret = ERR_AES_ERROR;
@@ -561,7 +566,7 @@ cp_aes_cbc_encrypt( char** dst, size_t* dst_len, const char* data, size_t data_l
     size_t      i, n1 = 0, n2 = 0, n3 = 0, rem = 0, len = 0;
     int         ret;
     const char *s = NULL, *prev = NULL;
-    char *      b1 = NULL, *b2 = NULL, *b3 = NULL;
+    char *      b1 = NULL, *b2 = NULL;
 
     encrypted = (char*) malloc( data_len + AES_BLOCK_SIZE + mode );
     if( !encrypted ) return ERR_INSUFFICIENT_MEMORY;
@@ -573,14 +578,13 @@ cp_aes_cbc_encrypt( char** dst, size_t* dst_len, const char* data, size_t data_l
         s   = data + i;
         rem = i + AES_BLOCK_SIZE < data_len ? AES_BLOCK_SIZE : data_len - i;
         ret = cp_pkcs7_pad( &b1, &n1, s, rem, AES_BLOCK_SIZE, mode );
-        ret = apply_repeating_xor( &b2, &n2, b1, n1, prev, AES_BLOCK_SIZE, mode );
-        ret = cp_aes_ecb_encrypt( &b3, &n3, b2, n2, key, key_len, mode );
-        memcpy( encrypted + i, b3, n3 );
+        ret = cp_repeating_xor( b1, n1, prev, AES_BLOCK_SIZE );
+        ret = cp_aes_ecb_encrypt( &b2, &n3, b1, n1, key, key_len, mode );
+        memcpy( encrypted + i, b2, n3 );
         len += n3;
 
         free( b1 );
         free( b2 );
-        free( b3 );
 
         prev = encrypted + i;
     }
@@ -601,7 +605,7 @@ cp_aes_cbc_decrypt( char** dst, size_t* dst_len, const char* data, size_t data_l
     size_t      i, n1 = 0, n2 = 0, n3 = 0, rem = 0, len = 0;
     int         ret;
     const char *s = NULL, *prev = NULL;
-    char *      b1 = NULL, *b2 = NULL, *b3 = NULL;
+    char *      b1 = NULL, *b2 = NULL;
 
     plaintext = (char*) malloc( data_len + mode );
     if( !plaintext ) return ERR_INSUFFICIENT_MEMORY;
@@ -612,14 +616,13 @@ cp_aes_cbc_decrypt( char** dst, size_t* dst_len, const char* data, size_t data_l
     {
         s   = data + i;
         ret = cp_aes_ecb_decrypt( &b1, &n1, s, AES_BLOCK_SIZE, key, key_len, mode );
-        ret = apply_repeating_xor( &b2, &n2, b1, n1, prev, AES_BLOCK_SIZE, mode );
-        ret = cp_pkcs7_unpad( &b3, &n3, b2, n2, mode );
-        memcpy( plaintext + i, b3, n3 );
+        ret = cp_repeating_xor( b1, n1, prev, AES_BLOCK_SIZE );
+        ret = cp_pkcs7_unpad( &b2, &n3, b1, n1, mode );
+        memcpy( plaintext + i, b2, n3 );
         len += n3;
 
         free( b1 );
         free( b2 );
-        free( b3 );
 
         prev = s;
     }
@@ -657,43 +660,31 @@ cp_count_ecb_repetitions( const char* src, size_t src_len, size_t block_size )
 }
 
 int
-apply_repeating_xor( char** dst, size_t* dst_len, const char* src, size_t src_len, const char* key, size_t key_len,
-                     int mode )
+cp_repeating_xor( char* dst, size_t dst_len, const char* key, size_t key_len )
 {
-    size_t i;
-    int    ch1, ch2;
-    char * buffer, *p;
-
     assert( dst && dst_len );
-    assert( src && src_len && key && key_len );
-    assert( mode == MODE_BINARY || mode == MODE_TEXT );
+    assert( key && key_len );
 
-    if( !dst || !dst_len || !src || !src_len || !key || !key_len || !( mode == MODE_BINARY || mode == MODE_TEXT ) )
-    {
-        return ERR_INVALID_ARGUMENT;
-    }
+    if( !dst || !dst_len || !key || !key_len ) { return ERR_INVALID_ARGUMENT; }
 
-    buffer = (char*) malloc( src_len + mode );
-    if( !buffer ) { return ERR_INSUFFICIENT_MEMORY; }
-
-    for( i = 0, p = buffer; i < src_len; i += 1 )
-    {
-        ch1 = src[i];
-        ch2 = key[i % key_len];
-
-        *p++ = ch1 ^ ch2;
-    }
-
-    if( mode == MODE_TEXT ) { *p = 0; }
-
-    *dst     = buffer;
-    *dst_len = src_len;
+    for( size_t i = 0; i < dst_len; i += 1 ) dst[i] ^= key[i % key_len];
 
     return ERR_OK;
 }
 
 int
-read_all( char** dst, size_t* dst_len, const char* filename, int mode )
+cp_block_xor( char* dst, const char* src, size_t len )
+{
+    assert( src && dst && len );
+    if( !dst || !src || !len ) { return ERR_INVALID_ARGUMENT; }
+
+    for( size_t i = 0; i < len; i++ ) dst[i] ^= src[i];
+
+    return ERR_OK;
+}
+
+int
+cp_read_all( char** dst, size_t* dst_len, const char* filename, int mode )
 {
     long   file_len;
     int    ret;
@@ -747,7 +738,7 @@ read_all( char** dst, size_t* dst_len, const char* filename, int mode )
 }
 
 int
-read_lines( const char* filename, line_callback on_line, void* arg )
+cp_read_lines( const char* filename, cp_line_callback on_line, void* arg )
 {
     FILE*  fp;
     char*  line = NULL;
@@ -790,4 +781,17 @@ read_lines( const char* filename, line_callback on_line, void* arg )
     fclose( fp );
 
     return ret;
+}
+
+void
+cp_dump_bytes( const char* msg, const char* buf, size_t len )
+{
+    size_t i;
+    printf( "%s\n", msg );
+    for( i = 0; i < len; i++ )
+        if( isprint( (unsigned char) *( buf + i ) ) )
+            printf( "%c", *( buf + i ) );
+        else
+            printf( "\\x%02x", *( buf + i ) );
+    printf( "\n" );
 }

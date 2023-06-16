@@ -5,36 +5,24 @@
 
 #include "utils.h"
 
-void
-dump_bytes( const char* buf, size_t len )
-{
-    size_t i;
-    for( i = 0; i < len; i++ )
-        if( isprint( *( buf + i ) ) )
-            printf( "%c", *( buf + i ) );
-        else
-            printf( "\\x%02x", *( buf + i ) );
-    printf( "\n" );
-}
-
 int
 main( void )
 {
-    char * buffer1 = NULL, *buffer2 = NULL;
-    size_t len1 = 0, len2 = 0;
-    int    ret;
+    char * b1 = NULL, *b2 = NULL;
+    size_t n1 = 0, n2 = 0;
 
     static const char* BLOCK = "YELLOW SUBMARINE";
-    ret                      = cp_pkcs7_pad( &buffer1, &len1, BLOCK, strlen( BLOCK ), 20, MODE_BINARY );
-    assert( ret == ERR_OK && buffer1 && len1 );
 
-    ret = cp_pkcs7_unpad( &buffer2, &len2, buffer1, len1, MODE_TEXT );
-    assert( ret == ERR_OK && buffer2 && len2 );
+    int ret = cp_pkcs7_pad( &b1, &n1, BLOCK, strlen( BLOCK ), 20, MODE_BINARY );
+    assert( ret == ERR_OK && b1 && n1 );
 
-    assert( len2 == strlen( BLOCK ) );
-    assert( !strcmp( buffer2, BLOCK ) );
+    ret = cp_pkcs7_unpad( &b2, &n2, b1, n1, MODE_TEXT );
+    assert( ret == ERR_OK && b2 && n2 );
 
-    dump_bytes( buffer1, len1 );
+    assert( n2 == strlen( BLOCK ) );
+    assert( !strcmp( b2, BLOCK ) );
+
+    cp_dump_bytes( "padded string: ", b1, n1 );
 
     return 0;
 }

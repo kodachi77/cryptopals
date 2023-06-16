@@ -8,11 +8,17 @@ The code is written in pure C.
 
 You will need premake5 to compile those projects:
 
+sudo apt install libtomcrypt-dev libcjson-dev
+
+
 ```sh
 # Generate solution on Windows
+$ vcpkg install libtomcrypt cjson
 $ premake5 vs2022
+
 # Generate makefile on Linux
-$ premake5 make
+$ sudo apt install libtomcrypt-dev libtommath-dev libcjson-dev
+$ premake5 gmake
 ```
 
 

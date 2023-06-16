@@ -1,13 +1,18 @@
-#include "utils.h"
-
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <limits.h>
 
+#ifdef _MSC_VER
 #include <intrin.h>
+#endif
 
-//> __builtin_popcount()
+#include "utils.h"
+
+#ifdef __GNUC__
+#define __popcnt __builtin_popcount
+#endif
 
 #define MAX_KEY_LENGTH 42
 #define N_CHUNKS       4
@@ -15,86 +20,77 @@
 static inline int
 hamming_distance( const char* buf1, const char* buf2, size_t len )
 {
-    size_t i;
-
     int r = 0;
-    for( i = 0; i < len; i++ ) r += __popcnt( buf1[i] ^ buf2[i] );
+    for( size_t i = 0; i < len; i++ ) r += __popcnt( buf1[i] ^ buf2[i] );
     return r;
 }
 
 int
-break_repeating_xor_key( char** out_plaintext, char** out_key, const char* src, size_t src_len )
+break_repeating_xor_key( char* dst, size_t dst_len, char* key, size_t key_len )
 {
-    assert( src_len > MAX_KEY_LENGTH * N_CHUNKS );
+    assert( key && key_len );
+    assert( dst_len > MAX_KEY_LENGTH * N_CHUNKS );
 
     char   chunks[N_CHUNKS][MAX_KEY_LENGTH] = { 0 };
     double hamming_dist[MAX_KEY_LENGTH]     = { 0 };
 
-    char key[MAX_KEY_LENGTH + 1] = { 0 };
-
-    size_t i, j, k, n = 0, key_size;
-
-    char *block, *out_buf;
-
-    double score, min_score;
-    int    ret, key_len_candidate;
+    size_t i, j, k;
 
     const size_t N_COMBINATIONS = N_CHUNKS * ( N_CHUNKS - 1 ) / 2;
 
     hamming_dist[0] = INT_MAX;
     hamming_dist[1] = INT_MAX;
 
-    for( key_size = 2; key_size < MAX_KEY_LENGTH; ++key_size )
+    for( k = 2; k < MAX_KEY_LENGTH; ++k )
     {
-        for( i = 0; i < N_CHUNKS; ++i ) { memcpy( &chunks[i][0], &src[i * key_size], key_size ); }
+        for( i = 0; i < N_CHUNKS; ++i ) { memcpy( &chunks[i][0], &dst[i * k], k ); }
 
-        hamming_dist[key_size] = 0;
+        hamming_dist[k] = 0;
         for( i = 0; i < N_CHUNKS - 1; i++ )
         {
-            for( j = i + 1; j < N_CHUNKS; j++ )
-            {
-                hamming_dist[key_size] += hamming_distance( chunks[i], chunks[j], key_size );
-            }
+            for( j = i + 1; j < N_CHUNKS; j++ ) { hamming_dist[k] += hamming_distance( chunks[i], chunks[j], k ); }
         }
-        hamming_dist[key_size] /= 1.0 * N_COMBINATIONS * key_size;
+        hamming_dist[k] /= 1.0 * N_COMBINATIONS * k;
     }
 
-    min_score         = INT_MAX;
-    key_len_candidate = -1;
+    double min_score        = INT_MAX;
+    int    detected_key_len = -1;
     for( i = 0; i < MAX_KEY_LENGTH; i++ )
     {
         if( hamming_dist[i] < min_score )
         {
-            min_score         = hamming_dist[i];
-            key_len_candidate = (int) i;
+            min_score        = hamming_dist[i];
+            detected_key_len = (int) i;
         }
     }
-    assert( key_len_candidate >= 0 );
+    assert( detected_key_len > 0 );
+    assert( detected_key_len + 1 <= key_len );
 
-    block = (char*) malloc( src_len / key_len_candidate + 1 );
+    if( detected_key_len <= 0 || detected_key_len + 1 > key_len ) return ERR_GENERIC_ERROR;
+
+    char* block = (char*) malloc( dst_len / detected_key_len + 1 );
     if( !block ) return ERR_INSUFFICIENT_MEMORY;
 
-    for( i = 0; i < key_len_candidate; ++i )
+    int ret = ERR_OK;
+    for( i = 0; i < detected_key_len; ++i )
     {
         k = 0;
-        for( j = i; j < src_len; j += key_len_candidate ) { block[k++] = src[j]; }
+        for( j = i; j < dst_len; j += detected_key_len ) { block[k++] = dst[j]; }
 
-        ret = break_single_char_xor( NULL, NULL, &key[i], &score, block, k, MODE_BINARY );
-        if( ret ) break;
+        double score = 0.0;
+        ret          = cp_break_single_char_xor( block, k, &key[i], &score );
+        if( ret != ERR_OK ) break;
     }
     free( block );
 
-    key[key_len_candidate] = 0;
+    key[detected_key_len] = 0;
 
-    if( !ret )
+    if( ret == ERR_OK && detected_key_len > 0 )
     {
-        ret = apply_repeating_xor( &out_buf, &n, src, src_len, key, key_len_candidate, MODE_TEXT );
-        if( ret == ERR_OK )
-        {
-            *out_plaintext = out_buf;
-            *out_key       = _strdup( key );
-        }
+        ret          = cp_repeating_xor( dst, dst_len, key, detected_key_len );
+        dst[dst_len] = 0;
     }
+
     return ret;
 }
 
@@ -103,31 +99,26 @@ main( void )
 {
     assert( hamming_distance( "this is a test", "wokka wokka!!!", 14 ) == 37 );
 
-    size_t blen = 0, read = 0;
+    char * b1 = NULL, *b2 = NULL;
+    size_t n1 = 0, n2 = 0;
 
-    char * base64_data = NULL, *binary_data = NULL, *plaintext = NULL, *key = NULL;
-    size_t b64len = 0;
-    int    ret;
+    int ret = cp_read_all( &b1, &n1, "set1ch6.txt", MODE_BINARY );
+    assert( ret == ERR_OK && b1 && n1 );
 
-    ret = read_all( &base64_data, &b64len, "set1ch6.txt", MODE_BINARY );
-    assert( ret == ERR_OK && base64_data && b64len );
+    ret = cp_base64_decode( &b2, &n2, b1, n1, MODE_TEXT );
+    assert( ret == ERR_OK && b2 && n2 );
 
-    ret = cp_base64_decode( &binary_data, &blen, base64_data, b64len, MODE_BINARY );
-    assert( ret == ERR_OK && binary_data && blen );
-
-    ret = break_repeating_xor_key( &plaintext, &key, binary_data, blen );
-    assert( ret == ERR_OK && plaintext && key );
+    char key[MAX_KEY_LENGTH] = { 0 };
+    ret                      = break_repeating_xor_key( b2, n2, key, ARRAY_SIZE( key ) );
+    assert( ret == ERR_OK );
 
     printf( "----------------------------\n" );
     printf( "Key: %s\n", key );
     printf( "----------------------------\n" );
-    printf( "%s\n", plaintext );
+    printf( "%s\n", b2 );
 
-    free( plaintext );
-    free( key );
-
-    free( binary_data );
-    free( base64_data );
+    free( b2 );
+    free( b1 );
 
     return 0;
 }

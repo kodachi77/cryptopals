@@ -13,16 +13,12 @@ parse_cookie( char* src, size_t src_len )
 {
     char * key = NULL, *value = NULL, *txt = NULL;
     size_t key_len = 0, value_len = 0;
-    cJSON* value_obj;
-
-    int num;
 
     cJSON* profile = cJSON_CreateObject();
     if( !profile ) { goto end; }
 
     char* s = src;
     key     = src;
-
     while( s <= src + src_len )
     {
         if( *s == '=' )
@@ -39,11 +35,12 @@ parse_cookie( char* src, size_t src_len )
             char* stopped;
             if( !value )
             {
-                //>
-                continue;
+                /* this should not be happening */
+                goto end;
             }
 
-            num = (int) strtol( value, &stopped, 10 );
+            int num = (int) strtol( value, &stopped, 10 );
+            cJSON* value_obj;
             if( *stopped ) { value_obj = cJSON_CreateString( value ); }
             else
             {
@@ -62,7 +59,6 @@ parse_cookie( char* src, size_t src_len )
         ++s;
     }
     txt = cJSON_Print( profile );
-    if( txt == NULL ) { fprintf( stderr, "Failed to print monitor.\n" ); }
 
 end:
     cJSON_Delete( profile );
@@ -73,21 +69,16 @@ static int
 blackbox_encrypt_internal( char** dst, size_t* dst_len, const char* src, size_t src_len, const char* key,
                            size_t key_len )
 {
-    size_t len, padded_len;
-    int    ret;
-    char*  buffer = NULL;
-    len           = src_len + AES_BLOCK_SIZE;
-    buffer        = (char*) malloc( len );
+    if( !dst || !dst_len || !src || !src_len || !key || !key_len ) return ERR_INVALID_ARGUMENT;
+
+    size_t len    = src_len + AES_BLOCK_SIZE;
+    char* buffer = (char*) malloc( len );
     if( !buffer ) return ERR_INSUFFICIENT_MEMORY;
 
     static const char IV[AES_BLOCK_SIZE] = { 0 };
 
-    assert( dst && dst_len );
-    assert( src && src_len );
-    assert( key && key_len );
-    if( !dst || !dst_len || !src || !src_len || !key || !key_len ) return ERR_INVALID_ARGUMENT;
-
-    ret = cp_pkcs7_pad( &buffer, &padded_len, src, src_len, AES_BLOCK_SIZE, MODE_BINARY );
+    size_t padded_len;
+    int ret = cp_pkcs7_pad( &buffer, &padded_len, src, src_len, AES_BLOCK_SIZE, MODE_BINARY );
     if( ret != ERR_OK ) { return ret; }
 
     ret = cp_aes_ecb_encrypt( dst, dst_len, buffer, padded_len, key, key_len, MODE_BINARY );
@@ -124,24 +115,28 @@ profile_for( char** dst, size_t* dst_len, const char* email, size_t email_len )
 }
 
 static int
-blackbox_decrypt( const char* src, size_t src_len )
+blackbox_decrypt( char** dst, const char* src, size_t src_len )
 {
-    int    ret;
-    char * buffer = NULL, *cookie;
+    char*  buffer = NULL;
     size_t len;
+    int ret    = cp_aes_ecb_decrypt( &buffer, &len, src, src_len, unknown_key, AES_BLOCK_SIZE, MODE_TEXT );
+    assert( ret == ERR_OK && buffer && len );
+    char* cookie = parse_cookie( buffer, len );
+    assert( cookie );
 
-    ret    = cp_aes_ecb_decrypt( &buffer, &len, src, src_len, unknown_key, AES_BLOCK_SIZE, MODE_TEXT );
-    cookie = parse_cookie( buffer, len );
-    printf( "%s\n", cookie );
-    free( cookie );
+    if(dst)
+        *dst = cookie;
+
     free( buffer );
-    return ERR_OK;
+    
+    return cookie != NULL ? ERR_OK : ERR_GENERIC_ERROR;
 }
 
 int
 main( void )
 {
-    cp_generate_random_string( unknown_key, AES_BLOCK_SIZE, AES_BLOCK_SIZE );
+    int ret = cp_generate_random_string( unknown_key, AES_BLOCK_SIZE, AES_BLOCK_SIZE );
+    assert( ret == ERR_OK );
 
     /* In this particular exercise we are not going to determine block size and ensure that this is ECB encryption.
      * We already know how to do that.
@@ -157,36 +152,38 @@ main( void )
      * | email=foo11@bar. | com&uid=10&role= | admin............|
      */
 
-    int ret;
-
     size_t key1_len    = strlen( "zzzzzzzzzzadmin" );
     size_t postfix_len = AES_BLOCK_SIZE - strlen( "admin" );
 
     char * encrypted1 = NULL, *encrypted2 = NULL;
     size_t len1, len2;
 
-    char email1[2 * AES_BLOCK_SIZE];
-    char email2[AES_BLOCK_SIZE];
+    char email1[2 * AES_BLOCK_SIZE] = { 0 };
+    char email2[AES_BLOCK_SIZE]     = { 0 };
 
-    char attacked_cypher[3 * AES_BLOCK_SIZE] = { 0 };
-
-    //assert( key1_len + prefix_len + postfix_len == 2 * AES_BLOCK_SIZE );
+    char compromised_cypher[3 * AES_BLOCK_SIZE] = { 0 };
 
     memcpy( email1, "zzzzzzzzzzadmin", key1_len );
     memset( email1 + key1_len, (char) postfix_len, postfix_len );
     ret = profile_for( &encrypted1, &len1, email1, 2 * AES_BLOCK_SIZE );
     assert( ret == ERR_OK && encrypted1 && len1 == 4 * AES_BLOCK_SIZE );
 
-    memcpy( email2, "foo11@bar.com", strlen( "foo11@bar.com" ) );    // 19 + 13 = 32
+    memcpy( email2, "foo11@bar.com", strlen( "foo11@bar.com" ) );
     assert( strlen( "email=foo11@bar.com&uid=10&role=" ) == 2 * AES_BLOCK_SIZE );
+    
     ret = profile_for( &encrypted2, &len2, email2, strlen( "foo11@bar.com" ) );
     assert( ret == ERR_OK && encrypted2 && len2 == 3 * AES_BLOCK_SIZE );
 
-    memcpy( attacked_cypher, encrypted2, 2 * AES_BLOCK_SIZE );
-    memcpy( attacked_cypher + 2 * AES_BLOCK_SIZE, encrypted1 + AES_BLOCK_SIZE, AES_BLOCK_SIZE );
+    memcpy( compromised_cypher, encrypted2, 2 * AES_BLOCK_SIZE );
+    memcpy( compromised_cypher + 2 * AES_BLOCK_SIZE, encrypted1 + AES_BLOCK_SIZE, AES_BLOCK_SIZE );
 
-    ret = blackbox_decrypt( attacked_cypher, 3 * AES_BLOCK_SIZE );
+    char* buffer = NULL;
+    ret = blackbox_decrypt( &buffer, compromised_cypher, 3 * AES_BLOCK_SIZE );
+    assert( ret == ERR_OK );
 
+    printf( "Decrypted string:\n%s\n", buffer );
+
+    free( buffer );
     free( encrypted1 );
     free( encrypted2 );
 

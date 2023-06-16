@@ -7,7 +7,7 @@ function base(name)
         kind "ConsoleApp"
         language "C"
         cdialect "C11"
-        buildoptions { "/Zc:preprocessor", "/volatile:iso", "/std:c11", "/TC", "/EHc" }
+        --buildoptions { "/Zc:preprocessor", "/volatile:iso", "/std:c11", "/TC", "/EHc" }
         targetdir "bin/%{cfg.buildcfg}"
 
         files{ name .. ".c", "utils.h", "utils.c" }
@@ -25,10 +25,12 @@ function base(name)
             platforms { "x64" }
 
         filter { "system:windows", "configurations:Release" }
+            buildoptions { "/Zc:preprocessor", "/volatile:iso", "/std:c11", "/TC", "/EHc" }
             flags { "NoIncrementalLink" }
 
         filter { "system:linux" }
             platforms { "linux64" }
+--            buildoptions { "-std=c11" }
             links { "pthread", "dl" }
         
         links { "tomcrypt", "tommath", "cjson" }

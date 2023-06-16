@@ -34,9 +34,9 @@ blackbox_encrypt( block_t* res, const char* prefix, size_t prefix_len, const cha
     assert( prefix_len && postfix_len );
     assert( key && key_len );
 
-    memcpy_s( buffer, len, prefix, prefix_len );
-    if( input_len && user_input ) memcpy_s( buffer + prefix_len, len - prefix_len, user_input, input_len );
-    memcpy_s( buffer + prefix_len + input_len, len - ( prefix_len + input_len ), postfix, postfix_len );
+    memcpy( buffer, prefix, prefix_len );
+    if( input_len && user_input ) memcpy( buffer + prefix_len, user_input, input_len );
+    memcpy( buffer + prefix_len + input_len, postfix, postfix_len );
 
     ret = cp_pkcs7_pad_inplace( &padded_len, buffer, len, len - AES_BLOCK_SIZE, AES_BLOCK_SIZE );
     if( ret != ERR_OK ) goto end;
@@ -144,19 +144,6 @@ determine_cbc_prefix_length()
     return prefix_len;
 }
 
-void
-dump_bytes( const char* msg, const unsigned char* buf, size_t len )
-{
-    size_t i;
-    printf( msg );
-    for( i = 0; i < len; i++ )
-        if( isprint( *( buf + i ) ) )
-            printf( "%c", *( buf + i ) );
-        else
-            printf( "\\x%02x", *( buf + i ) );
-    printf( "\n" );
-}
-
 int
 main( void )
 {
@@ -186,7 +173,7 @@ main( void )
 
     size_t total_prefix_length = block_aligned_prefix_len + block_aligned_postfix_len;
     if( total_prefix_length ) { memset( input, 'A', total_prefix_length ); }
-    memcpy_s( input + total_prefix_length, ARRAY_SIZE( input ), attack_value, strlen( attack_value ) );
+    memcpy( input + total_prefix_length, attack_value, strlen( attack_value ) );
 
     ret = oracle( &res, input, total_prefix_length + strlen( attack_value ) );
     assert( ret == ERR_OK );
@@ -201,12 +188,11 @@ main( void )
     ret = cp_aes_cbc_decrypt( &plaintext, &pt_len, res.bytes, res.len, unknown_key, AES_BLOCK_SIZE, IV, AES_BLOCK_SIZE,
                               MODE_TEXT );
 
-    dump_bytes( "4. Attacked value: ", plaintext, pt_len );
+    cp_dump_bytes( "4. Attacked value: ", plaintext, pt_len );
 
     assert( strstr( plaintext, ";admin=true;" ) );
 
     free( plaintext );
-    //free( secret_string );
 
     return 0;
 }

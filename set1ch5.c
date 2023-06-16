@@ -8,26 +8,24 @@
 int
 main( void )
 {
-    char * buffer = NULL, *hex_buffer = NULL;
-    size_t n1 = 0, n2 = 0;
-    int    ret;
+    char*  b1  = strdup( "Burning 'em, if you ain't quick and nimble\nI go crazy when I hear a cymbal" );
+    size_t n1  = strlen( b1 );
+    int    ret = cp_repeating_xor( b1, n1, "ICE", 3 );
+    assert( ret == ERR_OK );
 
-    const char* src_text = "Burning 'em, if you ain't quick and nimble\nI go crazy when I hear a cymbal";
+    char*  b2 = NULL;
+    size_t n2 = 0;
+    ret       = cp_bytes2hex( &b2, &n2, b1, n1, MODE_TEXT );
+    assert( ret == ERR_OK && b2 && n2 );
 
-    ret = apply_repeating_xor( &buffer, &n1, src_text, strlen( src_text ), "ICE", 3, MODE_BINARY );
-    assert( ret == ERR_OK && buffer && n1 );
-
-    ret = bytes2hex( &hex_buffer, &n2, buffer, n1, MODE_TEXT );
-    assert( ret == ERR_OK && hex_buffer && n2 );
-
-    assert( !strcmp( hex_buffer,
+    assert( !strcmp( b2,
                      "0b3637272a2b2e63622c2e69692a23693a2a3c6324202d623d63343c2a26226324272765272a282b2f20430a652e2c6"
                      "52a3124333a653e2b2027630c692b20283165286326302e27282f" ) );
 
-    printf( "%s\n", hex_buffer );
+    printf( "%s\n", b2 );
 
-    free( buffer );
-    free( hex_buffer );
+    free( b1 );
+    free( b2 );
 
     return 0;
 }
